@@ -91,12 +91,24 @@ export async function GET(request: Request) {
 
     // Mapear slots con disponibilidad real
     const now = new Date()
+    
     const slots = availableSlots.map(slot => {
-      // Verificar si el horario ya pasó (solo para el día de hoy)
+      // Crear fecha del slot sin problemas de zona horaria
+      const slotDate = new Date(slot.date)
+      const slotDateString = slotDate.toISOString().split('T')[0] // YYYY-MM-DD
+      
+      // Crear fecha de hoy sin problemas de zona horaria
+      const todayString = now.toISOString().split('T')[0] // YYYY-MM-DD
+      
+      // Verificar si el horario ya pasó
       const [hours, minutes] = slot.time.split(':').map(Number)
       const slotDateTime = new Date(slot.date)
       slotDateTime.setHours(hours, minutes, 0, 0)
-      const isPastTime = slotDateTime < now
+      
+      // Marcar como pasado solo si:
+      // 1. La fecha es anterior a hoy (comparando strings YYYY-MM-DD), O
+      // 2. La fecha es exactamente hoy Y la hora ya pasó
+      const isPastTime = slotDateString < todayString || (slotDateString === todayString && slotDateTime < now)
       
       return {
         id: slot.id,

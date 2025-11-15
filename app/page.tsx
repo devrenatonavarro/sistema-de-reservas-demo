@@ -166,13 +166,6 @@ export default function Home() {
             )}
           </div>
         </Card>
-
-        {/* Admin Link */}
-        <div className="text-center mt-8">
-          <a href="/admin" className="text-sm text-slate-600 hover:text-blue-600 underline">
-            Acceso Admin
-          </a>
-        </div>
       </div>
     </main>
   )
