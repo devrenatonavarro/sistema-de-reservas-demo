@@ -90,25 +90,39 @@ export async function GET(request: Request) {
     }, {} as Record<string, number>)
 
     // Mapear slots con disponibilidad real
+    // Obtener fecha/hora actual en zona horaria local (Perú UTC-5)
     const now = new Date()
     
+    // Ajustar a zona horaria de Perú (UTC-5)
+    const peruOffset = -5 * 60 // -5 horas en minutos
+    const localOffset = now.getTimezoneOffset() // minutos de diferencia con UTC
+    const peruTime = new Date(now.getTime() + (localOffset + peruOffset) * 60 * 1000)
+    
     const slots = availableSlots.map(slot => {
-      // Crear fecha del slot sin problemas de zona horaria
+      // Obtener fecha del slot en formato local
       const slotDate = new Date(slot.date)
-      const slotDateString = slotDate.toISOString().split('T')[0] // YYYY-MM-DD
+      const slotYear = slotDate.getUTCFullYear()
+      const slotMonth = String(slotDate.getUTCMonth() + 1).padStart(2, '0')
+      const slotDay = String(slotDate.getUTCDate()).padStart(2, '0')
+      const slotDateString = `${slotYear}-${slotMonth}-${slotDay}`
       
-      // Crear fecha de hoy sin problemas de zona horaria
-      const todayString = now.toISOString().split('T')[0] // YYYY-MM-DD
+      // Obtener fecha actual en Perú
+      const todayYear = peruTime.getFullYear()
+      const todayMonth = String(peruTime.getMonth() + 1).padStart(2, '0')
+      const todayDay = String(peruTime.getDate()).padStart(2, '0')
+      const todayString = `${todayYear}-${todayMonth}-${todayDay}`
       
       // Verificar si el horario ya pasó
       const [hours, minutes] = slot.time.split(':').map(Number)
-      const slotDateTime = new Date(slot.date)
-      slotDateTime.setHours(hours, minutes, 0, 0)
+      
+      // Crear fecha/hora del slot en formato comparable
+      const slotDateTime = new Date(slotYear, parseInt(slotMonth) - 1, parseInt(slotDay), hours, minutes, 0)
       
       // Marcar como pasado solo si:
       // 1. La fecha es anterior a hoy (comparando strings YYYY-MM-DD), O
-      // 2. La fecha es exactamente hoy Y la hora ya pasó
-      const isPastTime = slotDateString < todayString || (slotDateString === todayString && slotDateTime < now)
+      // 2. La fecha es exactamente hoy Y la hora ya pasó (comparando con hora de Perú)
+      const isPastTime = slotDateString < todayString || 
+        (slotDateString === todayString && slotDateTime < peruTime)
       
       return {
         id: slot.id,
