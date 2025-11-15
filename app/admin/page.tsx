@@ -3,100 +3,72 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
+import { useSession, signOut } from "next-auth/react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { AdminBookingsList } from "@/components/admin-bookings-list"
 import { LogOut } from "lucide-react"
+import useSWR from "swr"
+import { toast } from "sonner"
+
+const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function AdminPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [password, setPassword] = useState("")
-  const [bookings, setBookings] = useState<any[]>([])
+  const { data: session, status } = useSession()
+  const router = useRouter()
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default')
 
-  const ADMIN_PASSWORD = "admin123"
+  // Verificar estado de notificaciones
+  useEffect(() => {
+    if ('Notification' in window && status === "authenticated") {
+      setNotificationPermission(Notification.permission)
+      
+      // Actualizar el estado si cambia
+      const interval = setInterval(() => {
+        if (Notification.permission !== notificationPermission) {
+          setNotificationPermission(Notification.permission)
+        }
+      }, 1000)
+      
+      return () => clearInterval(interval)
+    }
+  }, [status, notificationPermission])
+
+  // SWR con refresco cada 5 segundos
+  const { data, error, mutate } = useSWR(
+    status === "authenticated" ? "/api/bookings" : null,
+    fetcher,
+    {
+      refreshInterval: 5000, // 5 segundos
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
+    }
+  )
+
+  const bookings = data?.bookings || []
 
   useEffect(() => {
-    loadBookings()
-  }, [isAuthenticated])
-
-  const loadBookings = () => {
-    const data = JSON.parse(localStorage.getItem("bookings") || "[]")
-    setBookings(data)
-  }
-
-  // Keep stats in sync with localStorage changes (other tabs or same-tab via polling)
-  const lastSerializedRef = useRef<string>(JSON.stringify(bookings))
-
-  useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "bookings") {
-        try {
-          const parsed = JSON.parse(e.newValue || "[]")
-          setBookings(parsed)
-          lastSerializedRef.current = JSON.stringify(parsed)
-        } catch (err) {
-          // ignore
-        }
-      }
+    if (status === "unauthenticated") {
+      router.push("/admin/login")
     }
+  }, [status, router])
 
-    window.addEventListener("storage", onStorage)
-
-    const interval = setInterval(() => {
-      try {
-        const raw = localStorage.getItem("bookings") || "[]"
-        if (raw !== lastSerializedRef.current) {
-          const parsed = JSON.parse(raw)
-          lastSerializedRef.current = raw
-          setBookings(parsed)
-        }
-      } catch (err) {
-        // ignore
-      }
-    }, 800)
-
-    return () => {
-      window.removeEventListener("storage", onStorage)
-      clearInterval(interval)
-    }
-  }, [])
-
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true)
-      setPassword("")
-    } else {
-      alert("Contraseña incorrecta")
-    }
-  }
-
-  if (!isAuthenticated) {
+  if (status === "loading" || !data) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-        <Card className="w-full max-w-md bg-white shadow-lg">
-          <div className="p-8">
-            <h1 className="text-2xl font-bold text-slate-900 mb-2">Panel Admin</h1>
-            <p className="text-slate-600 mb-6">Ingresa tu contraseña para continuar</p>
+        <Card className="w-full max-w-md bg-white shadow-lg p-8 text-center">
+          <p className="text-slate-600">Cargando...</p>
+        </Card>
+      </main>
+    )
+  }
 
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Contraseña</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Ingresa la contraseña"
-                />
-                <p className="text-xs text-slate-500 mt-2">Demo: admin123</p>
-              </div>
-
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white">
-                Ingresar
-              </Button>
-            </form>
-          </div>
+  if (error) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-white shadow-lg p-8 text-center">
+          <p className="text-red-600">Error al cargar las reservas</p>
         </Card>
       </main>
     )
@@ -110,8 +82,17 @@ export default function AdminPage() {
           <div>
             <h1 className="text-3xl font-bold text-slate-900">Panel de Administración</h1>
             <p className="text-slate-600">Gestiona todas las reservas</p>
+            {notificationPermission === 'granted' && (
+              <p className="text-xs text-green-600 mt-1">✓ Notificaciones activas</p>
+            )}
+            {notificationPermission === 'denied' && (
+              <p className="text-xs text-red-600 mt-1">✗ Notificaciones bloqueadas</p>
+            )}
+            {notificationPermission === 'default' && (
+              <p className="text-xs text-yellow-600 mt-1">⚠ Permite notificaciones para recibir alertas</p>
+            )}
           </div>
-          <Button onClick={() => setIsAuthenticated(false)} variant="outline" className="flex items-center gap-2">
+          <Button onClick={() => signOut({ callbackUrl: "/admin/login" })} variant="outline" className="flex items-center gap-2">
             <LogOut className="w-4 h-4" />
             Salir
           </Button>
@@ -127,9 +108,10 @@ export default function AdminPage() {
             <p className="text-slate-600 text-sm font-medium">Hoy</p>
             <p className="text-3xl font-bold text-blue-600 mt-2">
               {
-                bookings.filter((b) => {
+                bookings.filter((b: any) => {
                   const today = new Date().toISOString().split("T")[0]
-                  return b.date === today
+                  const bookingDate = new Date(b.date).toISOString().split("T")[0]
+                  return bookingDate === today
                 }).length
               }
             </p>
@@ -138,7 +120,7 @@ export default function AdminPage() {
             <p className="text-slate-600 text-sm font-medium">Esta Semana</p>
             <p className="text-3xl font-bold text-green-600 mt-2">
               {
-                bookings.filter((b) => {
+                bookings.filter((b: any) => {
                   const today = new Date()
                   const bookingDate = new Date(b.date)
                   const sevenDaysLater = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
@@ -152,10 +134,23 @@ export default function AdminPage() {
         {/* Bookings List */}
         <AdminBookingsList
           bookings={bookings}
-          onDelete={(id) => {
-            const updated = bookings.filter((b) => b.id !== id)
-            localStorage.setItem("bookings", JSON.stringify(updated))
-            setBookings(updated)
+          onDelete={async (id) => {
+            try {
+              const response = await fetch(`/api/bookings?id=${id}`, {
+                method: 'DELETE',
+              })
+              
+              if (response.ok) {
+                // Revalidar datos con SWR
+                mutate()
+                toast.success('Reserva eliminada correctamente')
+              } else {
+                toast.error('Error al eliminar la reserva')
+              }
+            } catch (error) {
+              console.error('Error deleting booking:', error)
+              toast.error('Error al eliminar la reserva')
+            }
           }}
         />
       </div>

@@ -1,0 +1,68 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo de Usuario Admin
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  name      String
+  email     String   @unique
+  role      String   @default("admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+// Modelo de Cita/Reserva
+model Booking {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String
+  date      DateTime
+  time      String
+  status    String   @default("confirmed") // confirmed, cancelled, completed
+  source    String   @default("web") // web, whatsapp
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([date])
+  @@index([email])
+  @@index([source])
+  @@map("bookings")
+}
+
+// Modelo de Horarios Disponibles
+model AvailableSlot {
+  id          String   @id @default(cuid())
+  date        DateTime
+  time        String
+  isAvailable Boolean  @default(true)
+  maxBookings Int      @default(1)
+  currentBookings Int  @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([date, time])
+  @@index([date, isAvailable])
+  @@map("available_slots")
+}
+
+// Modelo de Configuración del Sistema
+model SystemConfig {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  value           String
+  description     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("system_config")
+}

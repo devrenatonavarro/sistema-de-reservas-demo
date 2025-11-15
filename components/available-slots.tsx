@@ -8,22 +8,52 @@ interface AvailableSlotsProps {
   type: "date" | "time"
   onSelect: (value: string) => void
   date?: string
+  refreshKey?: number
 }
 
-export function AvailableSlots({ type, onSelect, date }: AvailableSlotsProps) {
+export function AvailableSlots({ type, onSelect, date, refreshKey }: AvailableSlotsProps) {
   const [currentDate, setCurrentDate] = useState(new Date())
-  const [bookedSlots, setBookedSlots] = useState<Record<string, string[]>>({})
+  const [availableDates, setAvailableDates] = useState<string[]>([])
+  const [availableTimeSlots, setAvailableTimeSlots] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    // Load booked slots from localStorage
-    const bookings = JSON.parse(localStorage.getItem("bookings") || "[]")
-    const slots: Record<string, string[]> = {}
-    bookings.forEach((booking: any) => {
-      if (!slots[booking.date]) slots[booking.date] = []
-      slots[booking.date].push(booking.time)
-    })
-    setBookedSlots(slots)
-  }, [])
+    if (type === "date") {
+      fetchAvailableDates()
+    }
+  }, [type])
+
+  useEffect(() => {
+    if (type === "time" && date) {
+      fetchAvailableTimeSlots(date)
+    }
+  }, [type, date, refreshKey])
+
+  const fetchAvailableDates = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/slots')
+      const data = await response.json()
+      setAvailableDates(data.dates || [])
+    } catch (error) {
+      console.error('Error fetching dates:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchAvailableTimeSlots = async (selectedDate: string) => {
+    try {
+      setLoading(true)
+      const response = await fetch(`/api/slots?date=${selectedDate}`)
+      const data = await response.json()
+      setAvailableTimeSlots(data.slots || [])
+    } catch (error) {
+      console.error('Error fetching time slots:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const handlePrevMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1))
@@ -55,7 +85,20 @@ export function AvailableSlots({ type, onSelect, date }: AvailableSlotsProps) {
     for (let i = 1; i <= daysInMonth; i++) {
       const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), i)
       date.setHours(0, 0, 0, 0)
-      days.push(date >= today ? date : null)
+      const dateStr = date.toISOString().split("T")[0]
+      const isAvailable = availableDates.includes(dateStr)
+      days.push(date >= today && isAvailable ? date : null)
+    }
+
+    if (loading) {
+      return (
+        <div className="space-y-6">
+          <h3 className="text-lg font-semibold text-slate-900">Selecciona una fecha</h3>
+          <div className="text-center py-8">
+            <p className="text-slate-600">Cargando fechas disponibles...</p>
+          </div>
+        </div>
+      )
     }
 
     return (
@@ -89,7 +132,6 @@ export function AvailableSlots({ type, onSelect, date }: AvailableSlotsProps) {
                 onClick={() => {
                   if (date) {
                     const dateStr = date.toISOString().split("T")[0]
-                    localStorage.setItem("currentBookingDate", dateStr)
                     onSelect(dateStr)
                   }
                 }}
@@ -110,35 +152,52 @@ export function AvailableSlots({ type, onSelect, date }: AvailableSlotsProps) {
   }
 
   // Time slots
-  const timeSlots = ["08:00", "09:00", "10:00", "11:00", "12:00", "14:00", "15:00", "16:00", "17:00", "18:00"]
-
-  const bookedTimes = bookedSlots[date] || []
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <h3 className="text-lg font-semibold text-slate-900">Selecciona una hora</h3>
+        <div className="text-center py-8">
+          <p className="text-slate-600">Cargando horarios disponibles...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-slate-900">Selecciona una hora</h3>
 
       <div className="grid grid-cols-3 gap-3">
-        {timeSlots.map((time) => {
-          const isBooked = bookedTimes.includes(time)
-          return (
-            <button
-              key={time}
-              onClick={() => {
-                localStorage.setItem("currentBookingTime", time)
-                onSelect(time)
-              }}
-              disabled={isBooked}
-              className={`py-3 px-2 rounded-lg font-medium transition-colors text-sm ${
-                isBooked
-                  ? "bg-slate-200 text-slate-400 cursor-not-allowed"
-                  : "bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white border border-blue-200"
-              }`}
-            >
-              {time}
-            </button>
-          )
-        })}
+        {availableTimeSlots.length === 0 ? (
+          <div className="col-span-3 text-center py-8">
+            <p className="text-slate-600">No hay horarios disponibles para esta fecha</p>
+          </div>
+        ) : (
+          availableTimeSlots.map((slot) => {
+            const isAvailable = slot.isAvailable
+            return (
+              <button
+                key={slot.id}
+                onClick={() => {
+                  if (isAvailable) {
+                    onSelect(slot.time)
+                  }
+                }}
+                disabled={!isAvailable}
+                className={`py-3 px-2 rounded-lg font-medium transition-colors text-sm ${
+                  isAvailable
+                    ? "bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white border border-blue-200 cursor-pointer"
+                    : "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed"
+                }`}
+              >
+                {slot.time}
+                {!isAvailable && (
+                  <span className="block text-xs mt-1">Reservado</span>
+                )}
+              </button>
+            )
+          })
+        )}
       </div>
     </div>
   )

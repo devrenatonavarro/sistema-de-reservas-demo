@@ -1,91 +1,40 @@
 "use client"
 
-import React, { useEffect, useRef, useState } from "react"
+import React, { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Trash2 } from "lucide-react"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface Booking {
-  id: number
+  id: string
   name: string
   email: string
   phone: string
   date: string
   time: string
+  status: string
   createdAt: string
 }
 
 interface AdminBookingsListProps {
   bookings?: Booking[]
-  onDelete: (id: number) => void
+  onDelete: (id: string) => void
 }
 
 export function AdminBookingsList({ bookings = [], onDelete }: AdminBookingsListProps) {
-  // State read from localStorage to simulate a websocket
-  const [bookingsState, setBookingsState] = useState<Booking[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("bookings") || "[]")
-    } catch (e) {
-      return bookings
-    }
-  })
+  const [bookingToDelete, setBookingToDelete] = useState<Booking | null>(null)
 
-  // Keep a serialized snapshot to detect changes by polling (fallback for same-window updates)
-  const lastSerializedRef = useRef<string>(JSON.stringify(bookingsState))
-
-  useEffect(() => {
-    // Handler for storage events (fires on other windows/tabs)
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "bookings") {
-        try {
-          const parsed = JSON.parse(e.newValue || "[]")
-          setBookingsState(parsed)
-          lastSerializedRef.current = JSON.stringify(parsed)
-        } catch (err) {
-          // ignore parse errors
-        }
-      }
-    }
-
-    window.addEventListener("storage", onStorage)
-
-    // Polling fallback for same-window changes (simple and acceptable for a demo)
-    const interval = setInterval(() => {
-      try {
-        const raw = localStorage.getItem("bookings") || "[]"
-        if (raw !== lastSerializedRef.current) {
-          const parsed = JSON.parse(raw)
-          lastSerializedRef.current = raw
-          setBookingsState(parsed)
-        }
-      } catch (err) {
-        // ignore
-      }
-    }, 800) // 800ms is responsive enough for a demo
-
-    return () => {
-      window.removeEventListener("storage", onStorage)
-      clearInterval(interval)
-    }
-  }, [])
-
-  // If parent passes bookings prop, keep it as seed but the component primarily reads localStorage
-  useEffect(() => {
-    if (!bookings || bookings.length === 0) return
-    // only set if localStorage is empty to avoid overwriting
-    try {
-      const raw = localStorage.getItem("bookings")
-      if (!raw || raw === "[]") {
-        localStorage.setItem("bookings", JSON.stringify(bookings))
-        setBookingsState(bookings)
-        lastSerializedRef.current = JSON.stringify(bookings)
-      }
-    } catch (err) {
-      // ignore
-    }
-  }, [bookings])
-
-  const sortedBookings = [...bookingsState].sort((a, b) => {
+  const sortedBookings = [...bookings].sort((a, b) => {
     const dateA = new Date(`${a.date}T${a.time}`)
     const dateB = new Date(`${b.date}T${b.time}`)
     return dateA.getTime() - dateB.getTime()
@@ -127,21 +76,7 @@ export function AdminBookingsList({ bookings = [], onDelete }: AdminBookingsList
                     <td className="px-4 py-3 text-sm text-slate-900 font-medium">{booking.time}</td>
                     <td className="px-4 py-3 text-sm">
                       <Button
-                        onClick={() => {
-                          if (confirm("¿Deseas eliminar esta reserva?")) {
-                            // Optimistically update UI
-                            setBookingsState((prev) => prev.filter((b) => b.id !== booking.id))
-                            try {
-                              const current = JSON.parse(localStorage.getItem("bookings") || "[]")
-                              const updated = current.filter((b: Booking) => b.id !== booking.id)
-                              localStorage.setItem("bookings", JSON.stringify(updated))
-                              lastSerializedRef.current = JSON.stringify(updated)
-                            } catch (err) {
-                              // ignore
-                            }
-                            onDelete(booking.id)
-                          }
-                        }}
+                        onClick={() => setBookingToDelete(booking)}
                         variant="ghost"
                         size="sm"
                         className="text-red-600 hover:bg-red-50 hover:text-red-700"
@@ -156,6 +91,37 @@ export function AdminBookingsList({ bookings = [], onDelete }: AdminBookingsList
           </div>
         )}
       </div>
+
+      {/* Alert Dialog para confirmar eliminación */}
+      <AlertDialog open={!!bookingToDelete} onOpenChange={() => setBookingToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar esta reserva?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta acción no se puede deshacer. Se eliminará permanentemente la reserva de{" "}
+              <span className="font-semibold text-slate-900">{bookingToDelete?.name}</span> para el{" "}
+              <span className="font-semibold text-slate-900">
+                {bookingToDelete && new Date(bookingToDelete.date).toLocaleDateString("es-ES")} a las{" "}
+                {bookingToDelete?.time}
+              </span>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (bookingToDelete) {
+                  onDelete(bookingToDelete.id)
+                  setBookingToDelete(null)
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   )
 }

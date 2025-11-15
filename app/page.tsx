@@ -12,6 +12,7 @@ export default function Home() {
   const [selectedTime, setSelectedTime] = useState<string>("")
   const [step, setStep] = useState<"date" | "time" | "form" | "confirmation">("date")
   const [formData, setFormData] = useState({ name: "", email: "", phone: "" })
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date)
@@ -21,6 +22,13 @@ export default function Home() {
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time)
     setStep("form")
+  }
+
+  const handleSlotUnavailable = () => {
+    // Refrescar los slots y volver a la selección de horarios
+    setSelectedTime("")
+    setRefreshKey(prev => prev + 1)
+    setStep("time")
   }
 
   const handleFormSubmit = (data: typeof formData) => {
@@ -67,7 +75,16 @@ export default function Home() {
                     })}
                   </p>
                 </div>
-                <AvailableSlots type="time" onSelect={handleTimeSelect} date={selectedDate} />
+                <AvailableSlots type="time" onSelect={handleTimeSelect} date={selectedDate} refreshKey={refreshKey} />
+                <div className="mt-6">
+                  <Button 
+                    onClick={() => setStep("date")} 
+                    variant="outline" 
+                    className="w-full bg-transparent"
+                  >
+                    ← Volver a seleccionar fecha
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -87,7 +104,13 @@ export default function Home() {
                     <span className="font-semibold text-slate-900">Hora:</span> {selectedTime}
                   </p>
                 </div>
-                <BookingForm onSubmit={handleFormSubmit} onCancel={() => setStep("time")} />
+                <BookingForm 
+                  onSubmit={handleFormSubmit} 
+                  onCancel={() => setStep("time")}
+                  onSlotUnavailable={handleSlotUnavailable}
+                  date={selectedDate}
+                  time={selectedTime}
+                />
               </div>
             )}
 
