@@ -48,30 +48,16 @@ export function AvailableSlots({ type, onSelect, date, refreshKey }: AvailableSl
       const response = await fetch(`/api/slots?date=${selectedDate}`)
       const data = await response.json()
       
-      // Verificar en el cliente qué slots ya pasaron (usa hora local del usuario)
-      const now = new Date()
-      const todayString = now.toISOString().split('T')[0]
-      
-      const slotsWithClientTime = (data.slots || []).map((slot: any) => {
-        const slotDate = new Date(slot.date)
-        const slotDateString = slotDate.toISOString().split('T')[0]
-        
-        // Verificar si el horario ya pasó según la hora LOCAL del usuario
-        const [hours, minutes] = slot.time.split(':').map(Number)
-        const slotDateTime = new Date(slotDate)
-        slotDateTime.setHours(hours, minutes, 0, 0)
-        
-        const isPastTime = slotDateString < todayString || 
-          (slotDateString === todayString && slotDateTime < now)
-        
+      // Usar isPastServer (basado en hora de España configurada en el servidor)
+      const slotsWithPastInfo = (data.slots || []).map((slot: any) => {
         return {
           ...slot,
-          isPastTime,
-          isAvailable: !isPastTime && slot.isAvailable
+          isPastTime: slot.isPastServer,
+          isAvailable: !slot.isPastServer && slot.isAvailable
         }
       })
       
-      setAvailableTimeSlots(slotsWithClientTime)
+      setAvailableTimeSlots(slotsWithPastInfo)
     } catch (error) {
       console.error('Error fetching time slots:', error)
     } finally {

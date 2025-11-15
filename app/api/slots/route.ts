@@ -89,10 +89,39 @@ export async function GET(request: Request) {
       return acc
     }, {} as Record<string, number>)
 
+    // Obtener hora actual en España (UTC+1)
+    // Durante horario de verano en España es UTC+2, pero usaremos UTC+1 como base
+    const nowUTC = new Date()
+    const spainOffset = 1 * 60 // +1 hora en minutos
+    const spainTime = new Date(nowUTC.getTime() + spainOffset * 60 * 1000)
+    
+    console.log('Hora UTC:', nowUTC.toISOString())
+    console.log('Hora España (UTC+1):', spainTime.toISOString())
+    console.log('Fecha solicitada:', date)
+    
     // Mapear slots con disponibilidad
-    // No verificamos si es pasado en el servidor - lo haremos en el cliente
-    // para respetar la zona horaria del usuario
     const slots = availableSlots.map(slot => {
+      // Obtener la fecha del slot
+      const slotDate = new Date(slot.date)
+      const slotYear = slotDate.getUTCFullYear()
+      const slotMonth = slotDate.getUTCMonth()
+      const slotDay = slotDate.getUTCDate()
+      
+      // Fecha de hoy en España
+      const todaySpain = new Date(spainTime)
+      const todayYear = todaySpain.getUTCFullYear()
+      const todayMonth = todaySpain.getUTCMonth()
+      const todayDay = todaySpain.getUTCDate()
+      
+      // Crear fecha/hora del slot (interpretando el time como hora de España)
+      const [hours, minutes] = slot.time.split(':').map(Number)
+      const slotDateTime = new Date(Date.UTC(slotYear, slotMonth, slotDay, hours - 1, minutes, 0, 0)) // -1 para ajustar a UTC desde España
+      
+      console.log(`Slot ${slot.time}: ${slotDateTime.toISOString()} vs España: ${spainTime.toISOString()} = isPast: ${slotDateTime < spainTime}`)
+      
+      // Verificar si ya pasó según hora de España
+      const isPastServer = slotDateTime < spainTime
+      
       return {
         id: slot.id,
         date: slot.date,
@@ -100,13 +129,17 @@ export async function GET(request: Request) {
         maxBookings: slot.maxBookings,
         currentBookings: bookingsByTime[slot.time] || 0,
         isAvailable: (bookingsByTime[slot.time] || 0) < slot.maxBookings,
+        isPastServer, // Basado en hora de España
       }
     })
 
     console.log('Horarios con reservas:', Object.keys(bookingsByTime))
     console.log('Total slots generados:', slots.length)
 
-    return NextResponse.json({ slots }, { headers: corsHeaders })
+    return NextResponse.json({ 
+      slots,
+      serverTime: spainTime.toISOString() // Hora de España usada como referencia
+    }, { headers: corsHeaders })
   } catch (error) {
     console.error('Error fetching slots:', error)
     return NextResponse.json({ error: 'Error al obtener horarios' }, { status: 500, headers: corsHeaders })
