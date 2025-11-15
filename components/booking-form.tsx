@@ -35,7 +35,7 @@ export function BookingForm({ onSubmit, onCancel, onSlotUnavailable, date, time 
     const newErrors: Record<string, string> = {}
     if (!formData.name.trim()) newErrors.name = "El nombre es requerido"
     if (!formData.email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) newErrors.email = "Email inválido"
-    if (!formData.phone.match(/^\d{7,}$/)) newErrors.phone = "Teléfono inválido (mínimo 7 dígitos)"
+    if (!formData.phone.trim()) newErrors.phone = "El teléfono es requerido"
     return newErrors
   }
 

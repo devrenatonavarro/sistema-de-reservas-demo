@@ -89,49 +89,17 @@ export async function GET(request: Request) {
       return acc
     }, {} as Record<string, number>)
 
-    // Mapear slots con disponibilidad real
-    // Obtener fecha/hora actual en zona horaria local (Perú UTC-5)
-    const now = new Date()
-    
-    // Ajustar a zona horaria de Perú (UTC-5)
-    const peruOffset = -5 * 60 // -5 horas en minutos
-    const localOffset = now.getTimezoneOffset() // minutos de diferencia con UTC
-    const peruTime = new Date(now.getTime() + (localOffset + peruOffset) * 60 * 1000)
-    
+    // Mapear slots con disponibilidad
+    // No verificamos si es pasado en el servidor - lo haremos en el cliente
+    // para respetar la zona horaria del usuario
     const slots = availableSlots.map(slot => {
-      // Obtener fecha del slot en formato local
-      const slotDate = new Date(slot.date)
-      const slotYear = slotDate.getUTCFullYear()
-      const slotMonth = String(slotDate.getUTCMonth() + 1).padStart(2, '0')
-      const slotDay = String(slotDate.getUTCDate()).padStart(2, '0')
-      const slotDateString = `${slotYear}-${slotMonth}-${slotDay}`
-      
-      // Obtener fecha actual en Perú
-      const todayYear = peruTime.getFullYear()
-      const todayMonth = String(peruTime.getMonth() + 1).padStart(2, '0')
-      const todayDay = String(peruTime.getDate()).padStart(2, '0')
-      const todayString = `${todayYear}-${todayMonth}-${todayDay}`
-      
-      // Verificar si el horario ya pasó
-      const [hours, minutes] = slot.time.split(':').map(Number)
-      
-      // Crear fecha/hora del slot en formato comparable
-      const slotDateTime = new Date(slotYear, parseInt(slotMonth) - 1, parseInt(slotDay), hours, minutes, 0)
-      
-      // Marcar como pasado solo si:
-      // 1. La fecha es anterior a hoy (comparando strings YYYY-MM-DD), O
-      // 2. La fecha es exactamente hoy Y la hora ya pasó (comparando con hora de Perú)
-      const isPastTime = slotDateString < todayString || 
-        (slotDateString === todayString && slotDateTime < peruTime)
-      
       return {
         id: slot.id,
         date: slot.date,
         time: slot.time,
         maxBookings: slot.maxBookings,
         currentBookings: bookingsByTime[slot.time] || 0,
-        isAvailable: !isPastTime && (bookingsByTime[slot.time] || 0) < slot.maxBookings,
-        isPastTime,
+        isAvailable: (bookingsByTime[slot.time] || 0) < slot.maxBookings,
       }
     })
 
