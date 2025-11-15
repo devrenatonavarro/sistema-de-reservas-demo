@@ -85,7 +85,11 @@ export function AvailableSlots({ type, onSelect, date, refreshKey }: AvailableSl
     for (let i = 1; i <= daysInMonth; i++) {
       const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), i)
       date.setHours(0, 0, 0, 0)
-      const dateStr = date.toISOString().split("T")[0]
+      // Crear el string de fecha manualmente para evitar problemas de timezone
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const dateStr = `${year}-${month}-${day}`
       const isAvailable = availableDates.includes(dateStr)
       days.push(date >= today && isAvailable ? date : null)
     }
@@ -131,7 +135,11 @@ export function AvailableSlots({ type, onSelect, date, refreshKey }: AvailableSl
                 key={index}
                 onClick={() => {
                   if (date) {
-                    const dateStr = date.toISOString().split("T")[0]
+                    // Crear el string de fecha manualmente para evitar problemas de timezone
+                    const year = date.getFullYear()
+                    const month = String(date.getMonth() + 1).padStart(2, '0')
+                    const day = String(date.getDate()).padStart(2, '0')
+                    const dateStr = `${year}-${month}-${day}`
                     onSelect(dateStr)
                   }
                 }}
@@ -175,6 +183,7 @@ export function AvailableSlots({ type, onSelect, date, refreshKey }: AvailableSl
         ) : (
           availableTimeSlots.map((slot) => {
             const isAvailable = slot.isAvailable
+            const isPastTime = slot.isPastTime
             return (
               <button
                 key={slot.id}
@@ -192,7 +201,9 @@ export function AvailableSlots({ type, onSelect, date, refreshKey }: AvailableSl
               >
                 {slot.time}
                 {!isAvailable && (
-                  <span className="block text-xs mt-1">Reservado</span>
+                  <span className="block text-xs mt-1">
+                    {isPastTime ? 'Pasado' : 'Reservado'}
+                  </span>
                 )}
               </button>
             )

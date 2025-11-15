@@ -15,31 +15,55 @@ export async function GET(request: Request) {
     const date = searchParams.get('date')
 
     if (!date) {
-      // Si no hay fecha, devolver las próximas fechas disponibles (próximos 30 días)
-      const dates = []
+      // Si no hay fecha, devolver las próximas fechas disponibles desde la BD (incluye hoy)
       const today = new Date()
       today.setHours(0, 0, 0, 0)
+      
+      const slots = await prisma.availableSlot.findMany({
+        where: {
+          date: {
+            gte: today,
+          },
+        },
+        orderBy: {
+          date: 'asc',
+        },
+        distinct: ['date'],
+        take: 60,
+      })
 
-      for (let i = 1; i <= 30; i++) {
-        const checkDate = new Date(today)
-        checkDate.setDate(checkDate.getDate() + i)
-        
-        // Saltar domingos
-        if (checkDate.getDay() === 0) continue
-        
-        const dateStr = checkDate.toISOString().split('T')[0]
-        dates.push(dateStr)
-      }
+      // Obtener fechas únicas
+      const dates = [...new Set(slots.map(slot => slot.date.toISOString().split('T')[0]))]
 
       return NextResponse.json({ dates })
     }
 
-    // Si hay fecha, devolver los horarios de esa fecha verificando reservas existentes
+    // Si hay fecha, devolver los horarios configurados para esa fecha
     console.log('Fecha recibida:', date)
 
     // Obtener todas las reservas confirmadas para esa fecha
     const startDate = new Date(date + 'T00:00:00.000Z')
     const endDate = new Date(date + 'T23:59:59.999Z')
+    
+    // Obtener slots configurados para ese día
+    const availableSlots = await prisma.availableSlot.findMany({
+      where: {
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      orderBy: {
+        time: 'asc',
+      },
+    })
+
+    console.log('Slots configurados:', availableSlots.length)
+
+    if (availableSlots.length === 0) {
+      console.log('No hay slots configurados para esta fecha')
+      return NextResponse.json({ slots: [] })
+    }
     
     const bookings = await prisma.booking.findMany({
       where: {
@@ -53,20 +77,33 @@ export async function GET(request: Request) {
 
     console.log('Reservas encontradas:', bookings.length, bookings)
 
-    // Crear un Set con los horarios ocupados
-    const bookedTimes = new Set(bookings.map(b => b.time))
+    // Contar reservas por horario
+    const bookingsByTime = bookings.reduce((acc, booking) => {
+      acc[booking.time] = (acc[booking.time] || 0) + 1
+      return acc
+    }, {} as Record<string, number>)
 
-    // Generar slots con disponibilidad basada en reservas reales
-    const slots = DEFAULT_TIME_SLOTS.map(time => ({
-      id: `${date}-${time}`,
-      date: new Date(date),
-      time,
-      isAvailable: !bookedTimes.has(time),
-      maxBookings: 1,
-      currentBookings: bookedTimes.has(time) ? 1 : 0,
-    }))
+    // Mapear slots con disponibilidad real
+    const now = new Date()
+    const slots = availableSlots.map(slot => {
+      // Verificar si el horario ya pasó (solo para el día de hoy)
+      const [hours, minutes] = slot.time.split(':').map(Number)
+      const slotDateTime = new Date(slot.date)
+      slotDateTime.setHours(hours, minutes, 0, 0)
+      const isPastTime = slotDateTime < now
+      
+      return {
+        id: slot.id,
+        date: slot.date,
+        time: slot.time,
+        maxBookings: slot.maxBookings,
+        currentBookings: bookingsByTime[slot.time] || 0,
+        isAvailable: !isPastTime && (bookingsByTime[slot.time] || 0) < slot.maxBookings,
+        isPastTime,
+      }
+    })
 
-    console.log('Horarios ocupados:', Array.from(bookedTimes))
+    console.log('Horarios con reservas:', Object.keys(bookingsByTime))
     console.log('Total slots generados:', slots.length)
 
     return NextResponse.json({ slots })

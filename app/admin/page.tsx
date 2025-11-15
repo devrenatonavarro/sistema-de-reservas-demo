@@ -1,14 +1,15 @@
 "use client"
 
-import type React from "react"
-
 import { useState, useEffect, useRef } from "react"
 import { useSession, signOut } from "next-auth/react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AdminBookingsList } from "@/components/admin-bookings-list"
-import { LogOut } from "lucide-react"
+import { UsersManagement } from "@/components/users-management"
+import { AvailabilityManagement } from "@/components/availability-management"
+import { LogOut, Calendar, Users, Clock } from "lucide-react"
 import useSWR from "swr"
 import { toast } from "sonner"
 
@@ -132,27 +133,54 @@ export default function AdminPage() {
         </div>
 
         {/* Bookings List */}
-        <AdminBookingsList
-          bookings={bookings}
-          onDelete={async (id) => {
-            try {
-              const response = await fetch(`/api/bookings?id=${id}`, {
-                method: 'DELETE',
-              })
-              
-              if (response.ok) {
-                // Revalidar datos con SWR
-                mutate()
-                toast.success('Reserva eliminada correctamente')
-              } else {
-                toast.error('Error al eliminar la reserva')
-              }
-            } catch (error) {
-              console.error('Error deleting booking:', error)
-              toast.error('Error al eliminar la reserva')
-            }
-          }}
-        />
+        <Tabs defaultValue="bookings" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-3 max-w-xl">
+            <TabsTrigger value="bookings" className="flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              Reservas
+            </TabsTrigger>
+            <TabsTrigger value="availability" className="flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Disponibilidad
+            </TabsTrigger>
+            <TabsTrigger value="users" className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              Usuarios
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="bookings">
+            <AdminBookingsList
+              bookings={bookings}
+              onDelete={async (id) => {
+                try {
+                  const response = await fetch(`/api/bookings?id=${id}`, {
+                    method: 'DELETE',
+                  })
+                  
+                  if (response.ok) {
+                    mutate()
+                    toast.success('Reserva eliminada correctamente')
+                  } else {
+                    toast.error('Error al eliminar la reserva')
+                  }
+                } catch (error) {
+                  console.error('Error deleting booking:', error)
+                  toast.error('Error al eliminar la reserva')
+                }
+              }}
+              onUpdate={() => mutate()}
+            />
+          </TabsContent>
+
+          <TabsContent value="availability">
+            <AvailabilityManagement />
+          </TabsContent>
+
+          <TabsContent value="users">
+            <UsersManagement />
+          </TabsContent>
+        </Tabs>
       </div>
     </main>
   )

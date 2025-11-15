@@ -67,7 +67,7 @@ export default function Home() {
                 <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-slate-600">
                     <span className="font-semibold text-slate-900">Fecha seleccionada:</span>{" "}
-                    {new Date(selectedDate).toLocaleDateString("es-ES", {
+                    {new Date(selectedDate + 'T12:00:00').toLocaleDateString("es-ES", {
                       weekday: "long",
                       year: "numeric",
                       month: "long",
@@ -93,7 +93,7 @@ export default function Home() {
                 <div className="mb-6 space-y-2 p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <p className="text-sm text-slate-600">
                     <span className="font-semibold text-slate-900">Fecha:</span>{" "}
-                    {new Date(selectedDate).toLocaleDateString("es-ES", {
+                    {new Date(selectedDate + 'T12:00:00').toLocaleDateString("es-ES", {
                       weekday: "long",
                       year: "numeric",
                       month: "long",
@@ -153,7 +153,7 @@ export default function Home() {
                     <div>
                       <p className="text-xs text-slate-600">Fecha y Hora</p>
                       <p className="font-semibold text-slate-900">
-                        {new Date(selectedDate).toLocaleDateString("es-ES")} a las {selectedTime}
+                        {new Date(selectedDate + 'T12:00:00').toLocaleDateString("es-ES")} a las {selectedTime}
                       </p>
                     </div>
                   </div>

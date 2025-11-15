@@ -21,12 +21,24 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const { name, email, phone, date, time } = body
+    const { name, email, phone, date, time, source = 'web', notes } = body
 
     // Validar datos
     if (!name || !email || !phone || !date || !time) {
       return NextResponse.json(
         { error: 'Todos los campos son requeridos' },
+        { status: 400 }
+      )
+    }
+
+    // Validar que no sea un horario pasado
+    const [hours, minutes] = time.split(':').map(Number)
+    const bookingDateTime = new Date(date + 'T' + time + ':00')
+    const now = new Date()
+    
+    if (bookingDateTime < now) {
+      return NextResponse.json(
+        { error: 'No se puede reservar en un horario pasado' },
         { status: 400 }
       )
     }
@@ -68,6 +80,8 @@ export async function POST(request: Request) {
         date: bookingDate,
         time,
         status: 'confirmed',
+        source: source || 'web',
+        notes: notes || null,
       },
     })
 
@@ -77,6 +91,38 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error creating booking:', error)
     return NextResponse.json({ error: 'Error al crear la reserva' }, { status: 500 })
+  }
+}
+
+// PUT - Actualizar reserva
+export async function PUT(request: Request) {
+  try {
+    const body = await request.json()
+    const { id, name, email, phone, date, time, status, source, notes } = body
+
+    if (!id) {
+      return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
+    }
+
+    const updateData: any = {}
+    if (name) updateData.name = name
+    if (email) updateData.email = email
+    if (phone) updateData.phone = phone
+    if (date) updateData.date = new Date(date)
+    if (time) updateData.time = time
+    if (status) updateData.status = status
+    if (source) updateData.source = source
+    if (notes !== undefined) updateData.notes = notes
+
+    const booking = await prisma.booking.update({
+      where: { id },
+      data: updateData,
+    })
+
+    return NextResponse.json({ booking })
+  } catch (error) {
+    console.error('Error updating booking:', error)
+    return NextResponse.json({ error: 'Error al actualizar la reserva' }, { status: 500 })
   }
 }
 
