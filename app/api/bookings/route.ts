@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { corsHeaders, handleCorsOptions } from '@/lib/cors'
+
+// OPTIONS - Manejar preflight
+export async function OPTIONS() {
+  return handleCorsOptions()
+}
 
 // GET - Obtener todas las reservas
 export async function GET() {
@@ -10,10 +16,10 @@ export async function GET() {
       },
     })
 
-    return NextResponse.json({ bookings })
+    return NextResponse.json({ bookings }, { headers: corsHeaders })
   } catch (error) {
     console.error('Error fetching bookings:', error)
-    return NextResponse.json({ error: 'Error al obtener reservas' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al obtener reservas' }, { status: 500, headers: corsHeaders })
   }
 }
 
@@ -27,7 +33,7 @@ export async function POST(request: Request) {
     if (!name || !email || !phone || !date || !time) {
       return NextResponse.json(
         { error: 'Todos los campos son requeridos' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -39,7 +45,7 @@ export async function POST(request: Request) {
     if (bookingDateTime < now) {
       return NextResponse.json(
         { error: 'No se puede reservar en un horario pasado' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -67,7 +73,7 @@ export async function POST(request: Request) {
     if (existingBooking) {
       return NextResponse.json(
         { error: 'El horario seleccionado ya está reservado' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -87,10 +93,10 @@ export async function POST(request: Request) {
 
     console.log('Reserva creada:', booking.id)
 
-    return NextResponse.json({ booking }, { status: 201 })
+    return NextResponse.json({ booking }, { status: 201, headers: corsHeaders })
   } catch (error) {
     console.error('Error creating booking:', error)
-    return NextResponse.json({ error: 'Error al crear la reserva' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al crear la reserva' }, { status: 500, headers: corsHeaders })
   }
 }
 
@@ -101,7 +107,7 @@ export async function PUT(request: Request) {
     const { id, name, email, phone, date, time, status, source, notes } = body
 
     if (!id) {
-      return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
+      return NextResponse.json({ error: 'ID requerido' }, { status: 400, headers: corsHeaders })
     }
 
     const updateData: any = {}
@@ -119,10 +125,10 @@ export async function PUT(request: Request) {
       data: updateData,
     })
 
-    return NextResponse.json({ booking })
+    return NextResponse.json({ booking }, { headers: corsHeaders })
   } catch (error) {
     console.error('Error updating booking:', error)
-    return NextResponse.json({ error: 'Error al actualizar la reserva' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al actualizar la reserva' }, { status: 500, headers: corsHeaders })
   }
 }
 
@@ -133,7 +139,7 @@ export async function DELETE(request: Request) {
     const id = searchParams.get('id')
 
     if (!id) {
-      return NextResponse.json({ error: 'ID requerido' }, { status: 400 })
+      return NextResponse.json({ error: 'ID requerido' }, { status: 400, headers: corsHeaders })
     }
 
     // Obtener la reserva antes de eliminarla
@@ -142,7 +148,7 @@ export async function DELETE(request: Request) {
     })
 
     if (!booking) {
-      return NextResponse.json({ error: 'Reserva no encontrada' }, { status: 404 })
+      return NextResponse.json({ error: 'Reserva no encontrada' }, { status: 404, headers: corsHeaders })
     }
 
     // Eliminar la reserva
@@ -152,9 +158,9 @@ export async function DELETE(request: Request) {
 
     console.log('Reserva eliminada:', id)
 
-    return NextResponse.json({ message: 'Reserva eliminada correctamente' })
+    return NextResponse.json({ message: 'Reserva eliminada correctamente' }, { headers: corsHeaders })
   } catch (error) {
     console.error('Error deleting booking:', error)
-    return NextResponse.json({ error: 'Error al eliminar la reserva' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al eliminar la reserva' }, { status: 500, headers: corsHeaders })
   }
 }

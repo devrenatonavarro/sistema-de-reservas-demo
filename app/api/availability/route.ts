@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getServerSession } from 'next-auth'
+import { corsHeaders, handleCorsOptions } from '@/lib/cors'
+
+// OPTIONS - Manejar preflight
+export async function OPTIONS() {
+  return handleCorsOptions()
+}
 
 // GET - Obtener slots disponibles para un rango de fechas
 export async function GET(request: Request) {
@@ -34,10 +40,10 @@ export async function GET(request: Request) {
       return acc
     }, {} as Record<string, any[]>)
 
-    return NextResponse.json({ slots, slotsByDate })
+    return NextResponse.json({ slots, slotsByDate }, { headers: corsHeaders })
   } catch (error) {
     console.error('Error fetching availability:', error)
-    return NextResponse.json({ error: 'Error al obtener disponibilidad' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al obtener disponibilidad' }, { status: 500, headers: corsHeaders })
   }
 }
 
@@ -46,7 +52,7 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession()
     if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: corsHeaders })
     }
 
     const body = await request.json()
@@ -58,7 +64,7 @@ export async function POST(request: Request) {
     if (!date || !timeSlots || !Array.isArray(timeSlots)) {
       return NextResponse.json(
         { error: 'Datos inválidos' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -103,10 +109,10 @@ export async function POST(request: Request) {
       message: 'Disponibilidad actualizada', 
       count: created.count,
       date: targetDate
-    })
+    }, { headers: corsHeaders })
   } catch (error) {
     console.error('Error updating availability:', error)
-    return NextResponse.json({ error: 'Error al actualizar disponibilidad' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al actualizar disponibilidad' }, { status: 500, headers: corsHeaders })
   }
 }
 
@@ -115,7 +121,7 @@ export async function PUT(request: Request) {
   try {
     const session = await getServerSession()
     if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: corsHeaders })
     }
 
     const body = await request.json()
@@ -124,7 +130,7 @@ export async function PUT(request: Request) {
     if (!date || !maxBookings) {
       return NextResponse.json(
         { error: 'Fecha y maxBookings son requeridos' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -144,10 +150,10 @@ export async function PUT(request: Request) {
       },
     })
 
-    return NextResponse.json({ message: 'Disponibilidad actualizada' })
+    return NextResponse.json({ message: 'Disponibilidad actualizada' }, { headers: corsHeaders })
   } catch (error) {
     console.error('Error updating availability:', error)
-    return NextResponse.json({ error: 'Error al actualizar disponibilidad' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al actualizar disponibilidad' }, { status: 500, headers: corsHeaders })
   }
 }
 
@@ -156,14 +162,14 @@ export async function DELETE(request: Request) {
   try {
     const session = await getServerSession()
     if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+      return NextResponse.json({ error: 'No autorizado' }, { status: 401, headers: corsHeaders })
     }
 
     const { searchParams } = new URL(request.url)
     const date = searchParams.get('date')
 
     if (!date) {
-      return NextResponse.json({ error: 'Fecha requerida' }, { status: 400 })
+      return NextResponse.json({ error: 'Fecha requerida' }, { status: 400, headers: corsHeaders })
     }
 
     console.log('🔍 Intentando eliminar día:', date)
@@ -222,7 +228,7 @@ export async function DELETE(request: Request) {
           error: `No se puede eliminar. Hay ${bookingsOnDate.length} reserva${bookingsOnDate.length > 1 ? 's' : ''} activa${bookingsOnDate.length > 1 ? 's' : ''} para este día.`,
           bookingsCount: bookingsOnDate.length
         },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       )
     }
 
@@ -244,9 +250,9 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ 
       message: 'Día cerrado correctamente',
       deletedCount: deleted.count 
-    })
+    }, { headers: corsHeaders })
   } catch (error) {
     console.error('Error deleting availability:', error)
-    return NextResponse.json({ error: 'Error al cerrar día' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al cerrar día' }, { status: 500, headers: corsHeaders })
   }
 }

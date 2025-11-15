@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { corsHeaders, handleCorsOptions } from '@/lib/cors'
+
+// OPTIONS - Manejar preflight
+export async function OPTIONS() {
+  return handleCorsOptions()
+}
 
 // POST - Sincronizar slots con reservas reales
 export async function POST() {
@@ -30,9 +36,9 @@ export async function POST() {
     return NextResponse.json({ 
       message: 'Slots sincronizados correctamente',
       slotsUpdated: slots.length 
-    })
+    }, { headers: corsHeaders })
   } catch (error) {
     console.error('Error syncing slots:', error)
-    return NextResponse.json({ error: 'Error al sincronizar slots' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al sincronizar slots' }, { status: 500, headers: corsHeaders })
   }
 }

@@ -1,5 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { corsHeaders, handleCorsOptions } from '@/lib/cors'
+
+// OPTIONS - Manejar preflight
+export async function OPTIONS() {
+  return handleCorsOptions()
+}
 
 // Horarios disponibles por defecto
 const DEFAULT_TIME_SLOTS = [
@@ -35,7 +41,7 @@ export async function GET(request: Request) {
       // Obtener fechas únicas
       const dates = [...new Set(slots.map(slot => slot.date.toISOString().split('T')[0]))]
 
-      return NextResponse.json({ dates })
+      return NextResponse.json({ dates }, { headers: corsHeaders })
     }
 
     // Si hay fecha, devolver los horarios configurados para esa fecha
@@ -62,7 +68,7 @@ export async function GET(request: Request) {
 
     if (availableSlots.length === 0) {
       console.log('No hay slots configurados para esta fecha')
-      return NextResponse.json({ slots: [] })
+      return NextResponse.json({ slots: [] }, { headers: corsHeaders })
     }
     
     const bookings = await prisma.booking.findMany({
@@ -106,9 +112,9 @@ export async function GET(request: Request) {
     console.log('Horarios con reservas:', Object.keys(bookingsByTime))
     console.log('Total slots generados:', slots.length)
 
-    return NextResponse.json({ slots })
+    return NextResponse.json({ slots }, { headers: corsHeaders })
   } catch (error) {
     console.error('Error fetching slots:', error)
-    return NextResponse.json({ error: 'Error al obtener horarios' }, { status: 500 })
+    return NextResponse.json({ error: 'Error al obtener horarios' }, { status: 500, headers: corsHeaders })
   }
 }
